@@ -2,20 +2,38 @@ package com.monframework.core;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
+
+import java.io.File;
 import java.io.IOException;
 
-public class FrontControllerServlet extends HttpServlet {
+public class FrontServlet extends HttpServlet {
 
     @Override
-    protected void service(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
+    public void init() throws ServletException{
+        try {
+            
+        } catch (Exception e) {
+            throw new ServletException();
+        }
+    }
 
-        String context = req.getContextPath(); // /TestProject
-        String uri = req.getRequestURI(); // /TestProject/hello
-        String path = uri.substring(context.length());
+    @Override
+    protected void service(HttpServletRequest req, HttpServletResponse resp) throws IOException, ServletException{
+        String path = req.getServletPath();
+        ServletContext context = getServletContext();
+        String realUrl = context.getRealPath(path);
 
-        resp.setContentType("text/plain;charset=UTF-8");
-        resp.getWriter().println("URL demandée : " + path);
-        resp.getWriter().println("Méthode HTTP : " + req.getMethod());
+        if(realUrl != null){
+            File file = new File(realUrl);
+            if (file.exists() && file.isFile()){
+                RequestDispatcher reqDisp = context.getNamedDispatcher("default");
+                reqDisp.forward(req, resp);
+                return ;
+            }
+        }
+
+        resp.setContentType("text/plain");
+        resp.getWriter().println("URL :" + path );
+        resp.getWriter().println("Methode :"+req.getMethod());
     }
 }

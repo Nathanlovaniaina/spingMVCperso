@@ -61,11 +61,34 @@ public class ClassFinder {
     }
 
     public static List<String> findClassesAnnotatedWithControleur(Path root) throws IOException {
+        return findClassesAnnotatedWithControleur(root, null);
+    }
+
+    /**
+     * Version avec ClassLoader explicite - préférable pour les environnements Servlet
+     */
+    public static List<String> findClassesAnnotatedWithControleur(Path root, ClassLoader contextClassLoader) throws IOException {
         List<String> result = new ArrayList<>();
         List<Path> classFiles = listClassFiles(root);
 
-        URL url = root.toUri().toURL();
-        try (URLClassLoader loader = new URLClassLoader(new URL[] { url })) {
+        // Utiliser le ClassLoader fourni, ou le context ClassLoader, ou créer un nouveau URLClassLoader
+        ClassLoader loader = contextClassLoader;
+        URLClassLoader urlLoader = null;
+        boolean shouldCloseLoader = false;
+        
+        if (loader == null) {
+            loader = Thread.currentThread().getContextClassLoader();
+        }
+        
+        // Si toujours null, créer un URLClassLoader (fallback pour tests unitaires)
+        if (loader == null) {
+            URL url = root.toUri().toURL();
+            urlLoader = new URLClassLoader(new URL[] { url });
+            loader = urlLoader;
+            shouldCloseLoader = true;
+        }
+
+        try {
             for (Path p : classFiles) {
                 Path rel = root.relativize(p);
                 String className = toClassName(rel);
@@ -73,7 +96,7 @@ public class ClassFinder {
                 System.out.println("[DEBUG] Loading class: '" + className + "' from path: " + p);
                 
                 try {
-                    Class<?> cls = loader.loadClass(className);
+                    Class<?> cls = Class.forName(className, false, loader);
                     if (cls.isAnnotationPresent(ControleurAnnotation.class)) {
                         ControleurAnnotation ann = cls.getAnnotation(ControleurAnnotation.class);
                         String val = ann.value();
@@ -82,9 +105,19 @@ public class ClassFinder {
                         } else {
                             result.add(className + " (value=" + val + ")");
                         }
+                        System.out.println("[DEBUG] Found controller: " + className + " with value: " + val);
                     }
                 } catch (Throwable t) {
                     System.err.println("Warning: unable to load " + className + " : " + t.getClass().getSimpleName() + " " + t.getMessage());
+                    t.printStackTrace();
+                }
+            }
+        } finally {
+            if (shouldCloseLoader && urlLoader != null) {
+                try {
+                    urlLoader.close();
+                } catch (IOException e) {
+                    // ignore
                 }
             }
         }

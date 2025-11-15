@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import com.monframework.core.util.Mapper.RouteMapping;
+import com.monframework.core.util.Mapper.ModelView;
 
 
 
@@ -135,39 +136,41 @@ public class FrontServlet extends HttpServlet {
     }
     
     /**
-     * Affiche les informations de la route trouvée
+     * Utilise ModelView pour obtenir la vue et faire un forward.
      */
     private void showMatchedRoute(HttpServletRequest request, HttpServletResponse response, 
-                                   String requestedPath, RouteMapping route) 
+                                  String requestedPath, RouteMapping route)
             throws IOException {
-        response.setContentType("text/plain; charset=UTF-8");
-        PrintWriter out = response.getWriter();
-
         try {
-            // Appeler la méthode du contrôleur
-            String result = route.callMethod();
-            
-            // Afficher le résultat
-            out.println("Route trouvée et méthode appelée avec succès");
-            out.println("URL: " + requestedPath);
-            out.println("Classe: " + route.getClassName());
-            out.println("Méthode: " + route.getMethodName() + "()");
-            out.println();
-            out.println("Résultat:");
-            out.println(result);
-            
+            ModelView mv = new ModelView(route);
+            String viewPath = mv.getView();
+
+            if (viewPath == null || viewPath.isEmpty()) {
+                response.setContentType("text/plain; charset=UTF-8");
+                PrintWriter out = response.getWriter();
+                out.println("Erreur: la vue retournée est vide");
+                out.println("URL: " + requestedPath);
+                return;
+            }
+
+            // Assurer un chemin commençant par '/'
+            if (!viewPath.startsWith("/")) {
+                viewPath = "/" + viewPath;
+            }
+
+            RequestDispatcher rd = request.getRequestDispatcher(viewPath);
+            rd.forward(request, response);
         } catch (Exception e) {
-            // En cas d'erreur lors de l'appel de la méthode
-            out.println("Erreur lors de l'appel de la méthode");
+            response.setContentType("text/plain; charset=UTF-8");
+            PrintWriter out = response.getWriter();
+            out.println("Erreur lors de la résolution de la vue");
             out.println("URL: " + requestedPath);
             out.println("Classe: " + route.getClassName());
             out.println("Méthode: " + route.getMethodName() + "()");
             out.println();
             out.println("Exception: " + e.getClass().getName());
             out.println("Message: " + e.getMessage());
-            
-            // Log l'erreur complète sur la console serveur
-            System.err.println("Erreur lors de l'appel de la méthode " + route.getMethodName() + ":");
+            System.err.println("Erreur lors de la résolution de la vue pour " + route.getMethodName() + ":");
             e.printStackTrace();
         }
     }

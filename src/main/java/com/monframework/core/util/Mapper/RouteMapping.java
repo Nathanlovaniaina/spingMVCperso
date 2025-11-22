@@ -12,6 +12,8 @@ import java.net.URLClassLoader;
 
 import com.monframework.core.util.Annotation.ControleurAnnotation;
 import com.monframework.core.util.Annotation.HandleURL;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 public class RouteMapping {
     private final String className;
@@ -89,6 +91,162 @@ public class RouteMapping {
         
         // Retourner le résultat (déjà vérifié comme String)
         return (String) result;
+    }
+
+    /**
+     * Variante acceptant HttpServletRequest/Response pour permettre aux contrôleurs
+     * d'utiliser request.setAttribute(...) directement.
+     * Cherche une signature dans l'ordre: (HttpServletRequest, HttpServletResponse),
+     * (HttpServletRequest), (), et invoque la méthode trouvée.
+     */
+    public String callMethod(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        Class<?> clazz = Class.forName(className, true, loader);
+        Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
+
+        Method method = null;
+        Object[] args = null;
+
+        try {
+            method = clazz.getDeclaredMethod(methodName, HttpServletRequest.class, HttpServletResponse.class);
+            args = new Object[] { request, response };
+        } catch (NoSuchMethodException e1) {
+            try {
+                method = clazz.getDeclaredMethod(methodName, HttpServletRequest.class);
+                args = new Object[] { request };
+            } catch (NoSuchMethodException e2) {
+                method = clazz.getDeclaredMethod(methodName);
+                args = new Object[] {};
+            }
+        }
+
+        if (!method.getReturnType().equals(String.class)) {
+            throw new Exception("La méthode " + methodName + " de la classe " + className +
+                    " ne retourne pas un String (retourne: " + method.getReturnType().getName() + ")");
+        }
+
+        Object result = method.invoke(controllerInstance, args);
+        return (String) result;
+    }
+
+    /**
+     * Résultat d'invocation contenant la vue et le modèle rempli par le contrôleur.
+     */
+    public static class InvokeResult {
+        private final String view;
+        private final Model model;
+
+        public InvokeResult(String view, Model model) {
+            this.view = view;
+            this.model = model;
+        }
+
+        public String getView() { return view; }
+        public Model getModel() { return model; }
+    }
+
+    /**
+     * Variante qui accepte un `Model` et tente d'injecter celui-ci dans la méthode
+     * du contrôleur si la signature l'accepte. Retourne la vue et le modèle.
+     * Supporte aussi les méthodes retournant directement un ModelView.
+     */
+    public InvokeResult callMethodWithModel(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        Class<?> clazz = Class.forName(className, true, loader);
+        Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
+
+        // Préparer un Model pour le contrôleur
+        Model model = new Model();
+
+        // Séquences de signatures préférées (ordre important)
+        Class<?>[][] preferred = new Class<?>[][] {
+            { Model.class, HttpServletRequest.class, HttpServletResponse.class },
+            { HttpServletRequest.class, Model.class, HttpServletResponse.class },
+            { HttpServletRequest.class, HttpServletResponse.class, Model.class },
+            { Model.class, HttpServletRequest.class },
+            { HttpServletRequest.class, Model.class },
+            { Model.class, HttpServletResponse.class },
+            { Model.class },
+            { HttpServletRequest.class, HttpServletResponse.class },
+            { HttpServletRequest.class },
+            { }
+        };
+
+        Method target = null;
+        Object[] args = null;
+
+        for (Class<?>[] sig : preferred) {
+            try {
+                Method m = clazz.getDeclaredMethod(methodName, sig);
+                target = m;
+                // Construire les args correspondants
+                args = new Object[sig.length];
+                for (int i = 0; i < sig.length; i++) {
+                    if (sig[i].equals(Model.class)) {
+                        args[i] = model;
+                    } else if (sig[i].equals(HttpServletRequest.class)) {
+                        args[i] = request;
+                    } else if (sig[i].equals(HttpServletResponse.class)) {
+                        args[i] = response;
+                    }
+                }
+                break;
+            } catch (NoSuchMethodException e) {
+                // try next signature
+            }
+        }
+
+        if (target == null) {
+            throw new Exception("Méthode " + methodName + " non trouvée avec une signature supportée dans " + className);
+        }
+
+        // Accepter String ou ModelView comme type de retour
+        Class<?> returnType = target.getReturnType();
+        if (!returnType.equals(String.class) && !returnType.equals(ModelView.class)) {
+            throw new Exception("La méthode " + methodName + " de la classe " + className +
+                    " ne retourne ni String ni ModelView (retourne: " + returnType.getName() + ")");
+        }
+
+        Object result = target.invoke(controllerInstance, args == null ? new Object[]{} : args);
+        
+        // Si le contrôleur retourne un ModelView, extraire la vue et le modèle
+        if (result instanceof ModelView) {
+            ModelView mv = (ModelView) result;
+            String view = mv.getViewPath();
+            // Copier les attributs du ModelView retourné dans notre Model
+            model.addAllAttributes(mv.getModel());
+            return new InvokeResult(view, model);
+        }
+        
+        // Sinon, c'est un String
+        String view = (String) result;
+        return new InvokeResult(view, model);
+    }
+
+    /**
+     * Appelle la méthode du contrôleur et retourne un ModelView.
+     * La méthode du contrôleur peut retourner un String (vue) ou un ModelView directement.
+     * @return ModelView construit à partir du résultat
+     * @throws Exception si le type de retour n'est ni String ni ModelView
+     */
+    public ModelView callToModelView() throws Exception {
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        Class<?> clazz = Class.forName(className, true, loader);
+        Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
+        Method method = clazz.getDeclaredMethod(methodName);
+
+        Object result = method.invoke(controllerInstance);
+        if (result == null) {
+            throw new Exception("La méthode " + methodName + " de la classe " + className + " a retourné null");
+        }
+        if (result instanceof String) {
+            return new ModelView((String) result);
+        }
+        if (result instanceof ModelView) {
+            return (ModelView) result;
+        }
+        throw new Exception("Type de retour non supporté: " + result.getClass().getName() + 
+                            " (attendu String ou ModelView)");
     }
 
     /**

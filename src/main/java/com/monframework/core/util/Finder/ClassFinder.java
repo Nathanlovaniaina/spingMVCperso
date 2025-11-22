@@ -1,6 +1,5 @@
 package com.monframework.core.util.Finder;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -211,6 +210,7 @@ public class ClassFinder {
     /**
      * Version alternative : détection automatique basée sur la structure typique
      */
+    @SuppressWarnings("unused")
     private static String toClassNameAutoDetect(Path rel, Path root) {
         String path = rel.toString().replace('\\', '.').replace('/', '.');
         
@@ -237,6 +237,7 @@ public class ClassFinder {
     /**
      * Méthode utilitaire pour debugger la conversion
      */
+    @SuppressWarnings("unused")
     private static String toClassNameWithDebug(Path rel) {
         String original = rel.toString();
         String normalized = original.replace('\\', '.').replace('/', '.');

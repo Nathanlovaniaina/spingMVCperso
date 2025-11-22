@@ -136,30 +136,15 @@ public class FrontServlet extends HttpServlet {
     }
     
     /**
-     * Utilise ModelView pour obtenir la vue et faire un forward.
+     * Utilise ModelView pour effectuer directement le forward.
      */
-    private void showMatchedRoute(HttpServletRequest request, HttpServletResponse response, 
+    private void showMatchedRoute(HttpServletRequest request, HttpServletResponse response,
                                   String requestedPath, RouteMapping route)
             throws IOException {
         try {
+            // Toujours utiliser ModelView basé sur la route; le contrôleur retourne un String
             ModelView mv = new ModelView(route);
-            String viewPath = mv.getView();
-
-            if (viewPath == null || viewPath.isEmpty()) {
-                response.setContentType("text/plain; charset=UTF-8");
-                PrintWriter out = response.getWriter();
-                out.println("Erreur: la vue retournée est vide");
-                out.println("URL: " + requestedPath);
-                return;
-            }
-
-            // Assurer un chemin commençant par '/'
-            if (!viewPath.startsWith("/")) {
-                viewPath = "/" + viewPath;
-            }
-
-            RequestDispatcher rd = request.getRequestDispatcher(viewPath);
-            rd.forward(request, response);
+            mv.getView(request, response);
         } catch (Exception e) {
             response.setContentType("text/plain; charset=UTF-8");
             PrintWriter out = response.getWriter();

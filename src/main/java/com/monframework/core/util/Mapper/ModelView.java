@@ -79,13 +79,13 @@ public class ModelView {
      * @throws Exception si l'invocation échoue, si la vue est vide,
      *                   ou si le forward échoue
      */
-    public void getView(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    public void getView(HttpServletRequest request, HttpServletResponse response, java.util.Map<String,String> pathVars) throws Exception {
         String viewPath;
         if (this.view != null && !this.view.isEmpty()) {
             viewPath = this.view;
         } else if (this.route != null) {
             // appeler la méthode du contrôleur en passant request/response et Model si possible
-            RouteMapping.InvokeResult res = this.route.callMethodWithModel(request, response);
+            RouteMapping.InvokeResult res = this.route.callMethodWithModel(request, response, pathVars);
             viewPath = res.getView();
             this.view = viewPath;
             // injecter les attributs fournis par le contrôleur via Model

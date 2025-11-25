@@ -9,6 +9,10 @@ import java.util.stream.Collectors;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 import com.monframework.core.util.Annotation.ControleurAnnotation;
 import com.monframework.core.util.Annotation.HandleURL;
@@ -49,6 +53,58 @@ public class RouteMapping {
         }
         
         return controller + url;
+    }
+
+    /**
+     * Tente de matcher le chemin demandé avec ce route mapping. Si match,
+     * retourne une map nom->valeur des variables de chemin; sinon retourne null.
+     */
+    public Map<String,String> match(String requestedPath) {
+        String full = getFullUrl();
+        // Construire un regex à partir du pattern contenant {var}
+        // Ex: /test/view/{id} -> ^/test/view/(?<id>[^/]+)$
+        StringBuilder regex = new StringBuilder();
+        int i = 0;
+        while (i < full.length()) {
+            int open = full.indexOf('{', i);
+            if (open == -1) {
+                // append rest (escape regex meta)
+                regex.append(Pattern.quote(full.substring(i)));
+                break;
+            }
+            // append literal up to open
+            if (open > i) {
+                regex.append(Pattern.quote(full.substring(i, open)));
+            }
+            int close = full.indexOf('}', open);
+            if (close == -1) {
+                // malformed, treat literally
+                regex.append(Pattern.quote(full.substring(open)));
+                break;
+            }
+            String name = full.substring(open + 1, close);
+            // named group
+            regex.append("(?<").append(name).append(">[^/]+)");
+            i = close + 1;
+        }
+        String finalRegex = "^" + regex.toString() + "$";
+        Pattern p = Pattern.compile(finalRegex);
+        Matcher m = p.matcher(requestedPath);
+        if (!m.matches()) return null;
+        // extract named groups (Java exposes via group names not directly; use group for each name)
+        // We can parse names by scanning the regex for (?<name>
+        Map<String,String> vars = new HashMap<>();
+        // Simple approach: find occurrences of (?<name>
+        Pattern namePat = Pattern.compile("\\(\\?<([a-zA-Z0-9_]+)>");
+        Matcher nm = namePat.matcher(regex.toString());
+        int idx = 1;
+        while (nm.find()) {
+            String varName = nm.group(1);
+            String value = m.group(varName);
+            vars.put(varName, value);
+            idx++;
+        }
+        return vars;
     }
 
     @Override
@@ -150,7 +206,7 @@ public class RouteMapping {
      * du contrôleur si la signature l'accepte. Retourne la vue et le modèle.
      * Supporte aussi les méthodes retournant directement un ModelView.
      */
-    public InvokeResult callMethodWithModel(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    public InvokeResult callMethodWithModel(HttpServletRequest request, HttpServletResponse response, Map<String,String> pathVars) throws Exception {
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
         Class<?> clazz = Class.forName(className, true, loader);
         Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
@@ -158,49 +214,50 @@ public class RouteMapping {
         // Préparer un Model pour le contrôleur
         Model model = new Model();
 
-        // Séquences de signatures préférées (ordre important)
-        Class<?>[][] preferred = new Class<?>[][] {
-            { Model.class, HttpServletRequest.class, HttpServletResponse.class },
-            { HttpServletRequest.class, Model.class, HttpServletResponse.class },
-            { HttpServletRequest.class, HttpServletResponse.class, Model.class },
-            { Model.class, HttpServletRequest.class },
-            { HttpServletRequest.class, Model.class },
-            { Model.class, HttpServletResponse.class },
-            { Model.class },
-            { HttpServletRequest.class, HttpServletResponse.class },
-            { HttpServletRequest.class },
-            { }
-        };
-
+        // Rechercher une méthode du contrôleur avec le bon nom et des paramètres que
+        // nous pouvons satisfaire (Model, HttpServletRequest, HttpServletResponse, et/ou path vars)
         Method target = null;
         Object[] args = null;
 
-        for (Class<?>[] sig : preferred) {
-            try {
-                Method m = clazz.getDeclaredMethod(methodName, sig);
-                target = m;
-                // Construire les args correspondants
-                args = new Object[sig.length];
-                for (int i = 0; i < sig.length; i++) {
-                    if (sig[i].equals(Model.class)) {
-                        args[i] = model;
-                    } else if (sig[i].equals(HttpServletRequest.class)) {
-                        args[i] = request;
-                    } else if (sig[i].equals(HttpServletResponse.class)) {
-                        args[i] = response;
+        for (Method m : clazz.getDeclaredMethods()) {
+            if (!m.getName().equals(methodName)) continue;
+            java.lang.reflect.Parameter[] params = m.getParameters();
+            Object[] candidateArgs = new Object[params.length];
+            boolean ok = true;
+            for (int i = 0; i < params.length; i++) {
+                Class<?> pt = params[i].getType();
+                String pname = params[i].getName();
+                if (pt.equals(Model.class)) {
+                    candidateArgs[i] = model;
+                } else if (pt.equals(HttpServletRequest.class)) {
+                    candidateArgs[i] = request;
+                } else if (pt.equals(HttpServletResponse.class)) {
+                    candidateArgs[i] = response;
+                } else {
+                    // Treat as a path variable: name must be present in pathVars
+                    if (pathVars != null && pathVars.containsKey(pname)) {
+                        String raw = pathVars.get(pname);
+                        Object converted = convertStringToType(raw, pt);
+                        if (converted == null) { ok = false; break; }
+                        candidateArgs[i] = converted;
+                    } else {
+                        ok = false;
+                        break;
                     }
                 }
-                break;
-            } catch (NoSuchMethodException e) {
-                // try next signature
             }
+            if (!ok) continue;
+            // method found
+            target = m;
+            args = candidateArgs;
+            break;
         }
 
         if (target == null) {
             throw new Exception("Méthode " + methodName + " non trouvée avec une signature supportée dans " + className);
         }
 
-        // Accepter String ou ModelView comme type de retour
+        // Vérifier type de retour
         Class<?> returnType = target.getReturnType();
         if (!returnType.equals(String.class) && !returnType.equals(ModelView.class)) {
             throw new Exception("La méthode " + methodName + " de la classe " + className +
@@ -208,19 +265,34 @@ public class RouteMapping {
         }
 
         Object result = target.invoke(controllerInstance, args == null ? new Object[]{} : args);
-        
-        // Si le contrôleur retourne un ModelView, extraire la vue et le modèle
         if (result instanceof ModelView) {
             ModelView mv = (ModelView) result;
             String view = mv.getViewPath();
-            // Copier les attributs du ModelView retourné dans notre Model
             model.addAllAttributes(mv.getModel());
             return new InvokeResult(view, model);
         }
-        
-        // Sinon, c'est un String
         String view = (String) result;
         return new InvokeResult(view, model);
+    }
+
+    /**
+     * Convertit une chaîne vers un type simple supporté (String, wrappers numériques, boolean).
+     * Retourne null si la conversion échoue ou type non supporté.
+     */
+    private static Object convertStringToType(String raw, Class<?> target) {
+        if (target.equals(String.class)) return raw;
+        try {
+            if (target.equals(Long.class) || target.equals(long.class)) return Long.valueOf(raw);
+            if (target.equals(Integer.class) || target.equals(int.class)) return Integer.valueOf(raw);
+            if (target.equals(Short.class) || target.equals(short.class)) return Short.valueOf(raw);
+            if (target.equals(Byte.class) || target.equals(byte.class)) return Byte.valueOf(raw);
+            if (target.equals(Double.class) || target.equals(double.class)) return Double.valueOf(raw);
+            if (target.equals(Float.class) || target.equals(float.class)) return Float.valueOf(raw);
+            if (target.equals(Boolean.class) || target.equals(boolean.class)) return Boolean.valueOf(raw);
+        } catch (Exception e) {
+            return null;
+        }
+        return null;
     }
 
     /**

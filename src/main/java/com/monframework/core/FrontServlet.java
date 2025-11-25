@@ -107,12 +107,21 @@ public class FrontServlet extends HttpServlet {
             routeMappings = Collections.emptyList();
         }
         
-        // Chercher une route correspondante
-        RouteMapping matchedRoute = findMatchingRoute(routeMappings, resourcePath);
+        // Chercher une route correspondante (support des path variables)
+        RouteMapping matchedRoute = null;
+        java.util.Map<String,String> pathVars = null;
+        for (RouteMapping rm : routeMappings) {
+            java.util.Map<String,String> vars = rm.match(resourcePath);
+            if (vars != null) {
+                matchedRoute = rm;
+                pathVars = vars;
+                break;
+            }
+        }
         
         if (matchedRoute != null) {
             // Route trouvée ! Afficher les informations
-            showMatchedRoute(request, response, resourcePath, matchedRoute);
+            showMatchedRoute(request, response, resourcePath, matchedRoute, pathVars);
         } else {
             // Aucune route trouvée, afficher la page par défaut
             showFrameworkPage(request, response, resourcePath, routeMappings);
@@ -139,12 +148,12 @@ public class FrontServlet extends HttpServlet {
      * Utilise ModelView pour effectuer directement le forward.
      */
     private void showMatchedRoute(HttpServletRequest request, HttpServletResponse response,
-                                  String requestedPath, RouteMapping route)
+                                  String requestedPath, RouteMapping route, java.util.Map<String,String> pathVars)
             throws IOException {
         try {
             // Toujours utiliser ModelView basé sur la route; le contrôleur retourne un String
             ModelView mv = new ModelView(route);
-            mv.getView(request, response);
+            mv.getView(request, response, pathVars);
         } catch (Exception e) {
             response.setContentType("text/plain; charset=UTF-8");
             PrintWriter out = response.getWriter();

@@ -17,6 +17,7 @@ import java.util.regex.Matcher;
 import com.monframework.core.util.Annotation.ControleurAnnotation;
 import com.monframework.core.util.Annotation.HandleURL;
 import com.monframework.core.util.Annotation.RequestParam;
+import com.monframework.core.util.Annotation.PathVariable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -235,13 +236,24 @@ public class RouteMapping {
                 } else if (pt.equals(HttpServletResponse.class)) {
                     candidateArgs[i] = response;
                 } else {
+                    // Vérifier si le paramètre a l'annotation @PathVariable
+                    PathVariable pathVariableAnnotation = params[i].getAnnotation(PathVariable.class);
                     // Vérifier si le paramètre a l'annotation @RequestParam
                     RequestParam requestParamAnnotation = params[i].getAnnotation(RequestParam.class);
+                    
                     String paramNameToLookup = pname; // Par défaut, utiliser le nom du paramètre
                     String defaultValue = null;
+                    boolean isPathVariable = false;
                     
-                    if (requestParamAnnotation != null) {
-                        // Si l'annotation est présente, utiliser sa valeur comme nom du paramètre
+                    if (pathVariableAnnotation != null) {
+                        // C'est une path variable
+                        isPathVariable = true;
+                        String annotationValue = pathVariableAnnotation.value();
+                        if (annotationValue != null && !annotationValue.isEmpty()) {
+                            paramNameToLookup = annotationValue;
+                        }
+                    } else if (requestParamAnnotation != null) {
+                        // C'est un request param
                         String annotationValue = requestParamAnnotation.value();
                         if (annotationValue != null && !annotationValue.isEmpty()) {
                             paramNameToLookup = annotationValue;
@@ -253,12 +265,20 @@ public class RouteMapping {
                         }
                     }
                     
-                    // Essayer d'abord path variable, puis request parameter
+                    // Chercher la valeur selon le type d'annotation
                     String raw = null;
-                    if (pathVars != null && pathVars.containsKey(paramNameToLookup)) {
-                        raw = pathVars.get(paramNameToLookup);
-                    } else if (request != null) {
-                        raw = request.getParameter(paramNameToLookup);
+                    if (isPathVariable) {
+                        // Pour @PathVariable, chercher uniquement dans pathVars
+                        if (pathVars != null && pathVars.containsKey(paramNameToLookup)) {
+                            raw = pathVars.get(paramNameToLookup);
+                        }
+                    } else {
+                        // Pour @RequestParam ou sans annotation, chercher d'abord pathVars puis request params
+                        if (pathVars != null && pathVars.containsKey(paramNameToLookup)) {
+                            raw = pathVars.get(paramNameToLookup);
+                        } else if (request != null) {
+                            raw = request.getParameter(paramNameToLookup);
+                        }
                     }
                     
                     // Si aucune valeur trouvée, utiliser la valeur par défaut

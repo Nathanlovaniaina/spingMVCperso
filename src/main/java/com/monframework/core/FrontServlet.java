@@ -80,6 +80,10 @@ public class FrontServlet extends HttpServlet {
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        // Définir l'encodage UTF-8 pour les paramètres avant toute lecture
+        request.setCharacterEncoding("UTF-8");
+        response.setCharacterEncoding("UTF-8");
+        
         String requestURI = request.getRequestURI();
         String contextPath = request.getContextPath();
         
@@ -126,22 +130,6 @@ public class FrontServlet extends HttpServlet {
             // Aucune route trouvée, afficher la page par défaut
             showFrameworkPage(request, response, resourcePath, routeMappings);
         }
-    }
-    
-    /**
-     * Cherche une route correspondant au chemin demandé
-     */
-    private RouteMapping findMatchingRoute(List<RouteMapping> routeMappings, String requestedPath) {
-        for (RouteMapping route : routeMappings) {
-            String fullUrl = route.getFullUrl();
-            
-            System.out.println("[DEBUG] Comparing requested: '" + requestedPath + "' with route: '" + fullUrl + "'");
-            
-            if (requestedPath.equals(fullUrl)) {
-                return route;
-            }
-        }
-        return null;
     }
     
     /**

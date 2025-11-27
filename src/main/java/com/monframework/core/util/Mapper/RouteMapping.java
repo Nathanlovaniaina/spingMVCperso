@@ -234,15 +234,27 @@ public class RouteMapping {
                 } else if (pt.equals(HttpServletResponse.class)) {
                     candidateArgs[i] = response;
                 } else {
-                    // Treat as a path variable: name must be present in pathVars
+                    // Essayer d'abord path variable, puis request parameter
+                    String raw = null;
                     if (pathVars != null && pathVars.containsKey(pname)) {
-                        String raw = pathVars.get(pname);
+                        raw = pathVars.get(pname);
+                    } else if (request != null) {
+                        raw = request.getParameter(pname);
+                    }
+                    
+                    if (raw != null) {
                         Object converted = convertStringToType(raw, pt);
                         if (converted == null) { ok = false; break; }
                         candidateArgs[i] = converted;
                     } else {
-                        ok = false;
-                        break;
+                        // Paramètre non fourni : accepter null pour les types wrapper (Integer, Long, etc.)
+                        // mais rejeter pour les primitifs (int, long, etc.)
+                        if (pt.isPrimitive()) {
+                            ok = false;
+                            break;
+                        }
+                        // Pour les wrappers et String, laisser null
+                        candidateArgs[i] = null;
                     }
                 }
             }

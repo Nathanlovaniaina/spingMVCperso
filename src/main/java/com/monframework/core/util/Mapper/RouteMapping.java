@@ -16,6 +16,7 @@ import java.util.regex.Matcher;
 
 import com.monframework.core.util.Annotation.ControleurAnnotation;
 import com.monframework.core.util.Annotation.HandleURL;
+import com.monframework.core.util.Annotation.RequestParam;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -234,12 +235,35 @@ public class RouteMapping {
                 } else if (pt.equals(HttpServletResponse.class)) {
                     candidateArgs[i] = response;
                 } else {
+                    // Vérifier si le paramètre a l'annotation @RequestParam
+                    RequestParam requestParamAnnotation = params[i].getAnnotation(RequestParam.class);
+                    String paramNameToLookup = pname; // Par défaut, utiliser le nom du paramètre
+                    String defaultValue = null;
+                    
+                    if (requestParamAnnotation != null) {
+                        // Si l'annotation est présente, utiliser sa valeur comme nom du paramètre
+                        String annotationValue = requestParamAnnotation.value();
+                        if (annotationValue != null && !annotationValue.isEmpty()) {
+                            paramNameToLookup = annotationValue;
+                        }
+                        // Récupérer la valeur par défaut
+                        String annotationDefault = requestParamAnnotation.defaultValue();
+                        if (annotationDefault != null && !annotationDefault.isEmpty()) {
+                            defaultValue = annotationDefault;
+                        }
+                    }
+                    
                     // Essayer d'abord path variable, puis request parameter
                     String raw = null;
-                    if (pathVars != null && pathVars.containsKey(pname)) {
-                        raw = pathVars.get(pname);
+                    if (pathVars != null && pathVars.containsKey(paramNameToLookup)) {
+                        raw = pathVars.get(paramNameToLookup);
                     } else if (request != null) {
-                        raw = request.getParameter(pname);
+                        raw = request.getParameter(paramNameToLookup);
+                    }
+                    
+                    // Si aucune valeur trouvée, utiliser la valeur par défaut
+                    if (raw == null && defaultValue != null) {
+                        raw = defaultValue;
                     }
                     
                     if (raw != null) {

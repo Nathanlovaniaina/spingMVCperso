@@ -5,4 +5,5 @@ com\monframework\core\util\Finder\ClassFinder.class
 com\monframework\core\util\Mapper\ModelView.class
 com\monframework\core\util\Mapper\RouteMapping.class
 com\monframework\core\util\Annotation\ControleurAnnotation.class
+com\monframework\core\util\Annotation\RequestParam.class
 com\monframework\core\FrontServlet.class

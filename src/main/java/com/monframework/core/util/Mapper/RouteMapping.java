@@ -18,6 +18,8 @@ import com.monframework.core.util.Annotation.ControleurAnnotation;
 import com.monframework.core.util.Annotation.HandleURL;
 import com.monframework.core.util.Annotation.RequestParam;
 import com.monframework.core.util.Annotation.PathVariable;
+import com.monframework.core.util.Annotation.GetRequest;
+import com.monframework.core.util.Annotation.PostRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -26,18 +28,21 @@ public class RouteMapping {
     private final String controllerValue;
     private final String urlValue;
     private final String methodName;
+    private final String httpMethod; // GET, POST, PUT, DELETE, ou null pour tous
 
-    public RouteMapping(String className, String controllerValue, String urlValue, String methodName) {
+    public RouteMapping(String className, String controllerValue, String urlValue, String methodName, String httpMethod) {
         this.className = className;
         this.controllerValue = controllerValue;
         this.urlValue = urlValue;
         this.methodName = methodName;
+        this.httpMethod = httpMethod;
     }
 
     public String getClassName() { return className; }
     public String getControllerValue() { return controllerValue; }
     public String getUrlValue() { return urlValue; }
     public String getMethodName() { return methodName; }
+    public String getHttpMethod() { return httpMethod; }
     
     /**
      * Retourne l'URL complète en combinant controllerValue et urlValue
@@ -462,11 +467,36 @@ public class RouteMapping {
                         
                         // Parcourir toutes les méthodes de la classe
                         for (Method m : clazz.getDeclaredMethods()) {
-                            // Vérifier si la méthode a l'annotation @HandleURL
+                            String urlValue = null;
+                            String httpMethod = null;
+                            
+                            // Vérifier @GetRequest
+                            GetRequest getAnn = m.getAnnotation(GetRequest.class);
+                            if (getAnn != null) {
+                                urlValue = getAnn.value();
+                                httpMethod = "GET";
+                            }
+                            
+                            // Vérifier @PostRequest
+                            PostRequest postAnn = m.getAnnotation(PostRequest.class);
+                            if (postAnn != null) {
+                                urlValue = postAnn.value();
+                                httpMethod = "POST";
+                            }
+                            
+                            // Vérifier @HandleURL (pour compatibilité)
                             HandleURL urlAnn = m.getAnnotation(HandleURL.class);
                             if (urlAnn != null) {
-                                String urlValue = urlAnn.value();
-                                RouteMapping mapping = new RouteMapping(clazz.getName(), controllerValue, urlValue, m.getName());
+                                urlValue = urlAnn.value();
+                                String methodAttr = urlAnn.method();
+                                if (methodAttr != null && !methodAttr.isEmpty()) {
+                                    httpMethod = methodAttr.toUpperCase();
+                                }
+                                // Sinon httpMethod reste null (accepte tous les types)
+                            }
+                            
+                            if (urlValue != null) {
+                                RouteMapping mapping = new RouteMapping(clazz.getName(), controllerValue, urlValue, m.getName(), httpMethod);
                                 result.add(mapping);
                                 System.out.println("[DEBUG RouteMapping] Added route: " + mapping);
                             }

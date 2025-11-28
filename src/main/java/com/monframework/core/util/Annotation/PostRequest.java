@@ -9,8 +9,6 @@ import java.lang.annotation.Target;
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface HandleURL {
-	String value() default "";
-	String method() default ""; // GET, POST, PUT, DELETE, ou vide pour tous
-	
+public @interface PostRequest {
+    String value() default "";
 }

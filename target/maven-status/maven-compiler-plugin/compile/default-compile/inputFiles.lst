@@ -1,7 +1,9 @@
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\FrontServlet.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\ControleurAnnotation.java
+C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\GetRequest.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\HandleURL.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\PathVariable.java
+C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\PostRequest.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\RequestParam.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Finder\ClassFinder.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\Model.java

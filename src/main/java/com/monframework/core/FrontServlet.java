@@ -111,15 +111,22 @@ public class FrontServlet extends HttpServlet {
             routeMappings = Collections.emptyList();
         }
         
-        // Chercher une route correspondante (support des path variables)
+        // Récupérer la méthode HTTP de la requête
+        String requestMethod = request.getMethod(); // GET, POST, PUT, DELETE, etc.
+        
+        // Chercher une route correspondante (support des path variables et méthode HTTP)
         RouteMapping matchedRoute = null;
         java.util.Map<String,String> pathVars = null;
         for (RouteMapping rm : routeMappings) {
             java.util.Map<String,String> vars = rm.match(resourcePath);
             if (vars != null) {
-                matchedRoute = rm;
-                pathVars = vars;
-                break;
+                // L'URL correspond, vérifier la méthode HTTP
+                String routeMethod = rm.getHttpMethod();
+                if (routeMethod == null || routeMethod.isEmpty() || routeMethod.equalsIgnoreCase(requestMethod)) {
+                    matchedRoute = rm;
+                    pathVars = vars;
+                    break;
+                }
             }
         }
         

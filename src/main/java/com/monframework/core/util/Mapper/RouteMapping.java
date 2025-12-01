@@ -16,10 +16,10 @@ import java.util.regex.Matcher;
 
 import com.monframework.core.util.Annotation.ControleurAnnotation;
 import com.monframework.core.util.Annotation.HandleURL;
-import com.monframework.core.util.Annotation.RequestParam;
-import com.monframework.core.util.Annotation.PathVariable;
 import com.monframework.core.util.Annotation.GetRequest;
 import com.monframework.core.util.Annotation.PostRequest;
+import com.monframework.core.util.Mapper.ParmeterUtil.ParameterResolver;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -104,12 +104,10 @@ public class RouteMapping {
         // Simple approach: find occurrences of (?<name>
         Pattern namePat = Pattern.compile("\\(\\?<([a-zA-Z0-9_]+)>");
         Matcher nm = namePat.matcher(regex.toString());
-        int idx = 1;
         while (nm.find()) {
             String varName = nm.group(1);
             String value = m.group(varName);
             vars.put(varName, value);
-            idx++;
         }
         return vars;
     }
@@ -220,95 +218,34 @@ public class RouteMapping {
 
         // Préparer un Model pour le contrôleur
         Model model = new Model();
+        
+        // Créer le résolveur de paramètres
+        ParameterResolver resolver = new ParameterResolver(request, response, model, pathVars);
 
         // Rechercher une méthode du contrôleur avec le bon nom et des paramètres que
-        // nous pouvons satisfaire (Model, HttpServletRequest, HttpServletResponse, et/ou path vars)
+        // nous pouvons satisfaire
         Method target = null;
         Object[] args = null;
 
         for (Method m : clazz.getDeclaredMethods()) {
             if (!m.getName().equals(methodName)) continue;
+            
             java.lang.reflect.Parameter[] params = m.getParameters();
             Object[] candidateArgs = new Object[params.length];
             boolean ok = true;
-            for (int i = 0; i < params.length; i++) {
-                Class<?> pt = params[i].getType();
-                String pname = params[i].getName();
-                if (pt.equals(Model.class)) {
-                    candidateArgs[i] = model;
-                } else if (pt.equals(HttpServletRequest.class)) {
-                    candidateArgs[i] = request;
-                } else if (pt.equals(HttpServletResponse.class)) {
-                    candidateArgs[i] = response;
-                } else {
-                    // Vérifier si le paramètre a l'annotation @PathVariable
-                    PathVariable pathVariableAnnotation = params[i].getAnnotation(PathVariable.class);
-                    // Vérifier si le paramètre a l'annotation @RequestParam
-                    RequestParam requestParamAnnotation = params[i].getAnnotation(RequestParam.class);
-                    
-                    String paramNameToLookup = pname; // Par défaut, utiliser le nom du paramètre
-                    String defaultValue = null;
-                    boolean isPathVariable = false;
-                    
-                    if (pathVariableAnnotation != null) {
-                        // C'est une path variable
-                        isPathVariable = true;
-                        String annotationValue = pathVariableAnnotation.value();
-                        if (annotationValue != null && !annotationValue.isEmpty()) {
-                            paramNameToLookup = annotationValue;
-                        }
-                    } else if (requestParamAnnotation != null) {
-                        // C'est un request param
-                        String annotationValue = requestParamAnnotation.value();
-                        if (annotationValue != null && !annotationValue.isEmpty()) {
-                            paramNameToLookup = annotationValue;
-                        }
-                        // Récupérer la valeur par défaut
-                        String annotationDefault = requestParamAnnotation.defaultValue();
-                        if (annotationDefault != null && !annotationDefault.isEmpty()) {
-                            defaultValue = annotationDefault;
-                        }
-                    }
-                    
-                    // Chercher la valeur selon le type d'annotation
-                    String raw = null;
-                    if (isPathVariable) {
-                        // Pour @PathVariable, chercher uniquement dans pathVars
-                        if (pathVars != null && pathVars.containsKey(paramNameToLookup)) {
-                            raw = pathVars.get(paramNameToLookup);
-                        }
-                    } else {
-                        // Pour @RequestParam ou sans annotation, chercher d'abord pathVars puis request params
-                        if (pathVars != null && pathVars.containsKey(paramNameToLookup)) {
-                            raw = pathVars.get(paramNameToLookup);
-                        } else if (request != null) {
-                            raw = request.getParameter(paramNameToLookup);
-                        }
-                    }
-                    
-                    // Si aucune valeur trouvée, utiliser la valeur par défaut
-                    if (raw == null && defaultValue != null) {
-                        raw = defaultValue;
-                    }
-                    
-                    if (raw != null) {
-                        Object converted = convertStringToType(raw, pt);
-                        if (converted == null) { ok = false; break; }
-                        candidateArgs[i] = converted;
-                    } else {
-                        // Paramètre non fourni : accepter null pour les types wrapper (Integer, Long, etc.)
-                        // mais rejeter pour les primitifs (int, long, etc.)
-                        if (pt.isPrimitive()) {
-                            ok = false;
-                            break;
-                        }
-                        // Pour les wrappers et String, laisser null
-                        candidateArgs[i] = null;
-                    }
+            
+            try {
+                for (int i = 0; i < params.length; i++) {
+                    candidateArgs[i] = resolver.resolveParameter(params[i]);
                 }
+            } catch (ParameterResolver.ParameterResolutionException e) {
+                // Ce ne peut pas être la bonne méthode, continuer
+                ok = false;
             }
+            
             if (!ok) continue;
-            // method found
+            
+            // Méthode trouvée
             target = m;
             args = candidateArgs;
             break;
@@ -334,26 +271,6 @@ public class RouteMapping {
         }
         String view = (String) result;
         return new InvokeResult(view, model);
-    }
-
-    /**
-     * Convertit une chaîne vers un type simple supporté (String, wrappers numériques, boolean).
-     * Retourne null si la conversion échoue ou type non supporté.
-     */
-    private static Object convertStringToType(String raw, Class<?> target) {
-        if (target.equals(String.class)) return raw;
-        try {
-            if (target.equals(Long.class) || target.equals(long.class)) return Long.valueOf(raw);
-            if (target.equals(Integer.class) || target.equals(int.class)) return Integer.valueOf(raw);
-            if (target.equals(Short.class) || target.equals(short.class)) return Short.valueOf(raw);
-            if (target.equals(Byte.class) || target.equals(byte.class)) return Byte.valueOf(raw);
-            if (target.equals(Double.class) || target.equals(double.class)) return Double.valueOf(raw);
-            if (target.equals(Float.class) || target.equals(float.class)) return Float.valueOf(raw);
-            if (target.equals(Boolean.class) || target.equals(boolean.class)) return Boolean.valueOf(raw);
-        } catch (Exception e) {
-            return null;
-        }
-        return null;
     }
 
     /**

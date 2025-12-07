@@ -5,11 +5,12 @@ com\monframework\core\util\Finder\ClassFinder.class
 com\monframework\core\util\Mapper\RouteMapping.class
 com\monframework\core\util\Annotation\ControleurAnnotation.class
 com\monframework\core\util\Annotation\PathVariable.class
-com\monframework\core\util\Mapper\ParameterResolver.class
-com\monframework\core\util\Mapper\TypeConverter.class
+com\monframework\core\util\Mapper\ParmeterUtil\BeanMapper.class
+com\monframework\core\util\Mapper\ParmeterUtil\ParameterResolver.class
 com\monframework\core\util\Annotation\PostRequest.class
-com\monframework\core\util\Mapper\ParameterResolver$ParameterResolutionException.class
+com\monframework\core\util\Mapper\ParmeterUtil\TypeConverter.class
 com\monframework\core\util\Mapper\ModelView.class
 com\monframework\core\util\Annotation\RequestParam.class
+com\monframework\core\util\Mapper\ParmeterUtil\ParameterResolver$ParameterResolutionException.class
 com\monframework\core\util\Annotation\GetRequest.class
 com\monframework\core\FrontServlet.class

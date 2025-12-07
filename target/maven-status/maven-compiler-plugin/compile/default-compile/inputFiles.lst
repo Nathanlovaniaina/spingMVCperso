@@ -8,6 +8,7 @@ C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Finder\ClassFinder.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\Model.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\ModelView.java
-C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\ParameterResolver.java
+C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\ParmeterUtil\BeanMapper.java
+C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\ParmeterUtil\ParameterResolver.java
+C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\ParmeterUtil\TypeConverter.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\RouteMapping.java
-C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\TypeConverter.java

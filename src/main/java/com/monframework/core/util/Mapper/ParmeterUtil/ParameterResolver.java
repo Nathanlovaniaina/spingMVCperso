@@ -58,8 +58,20 @@ public class ParameterResolver {
         }
         
         // Cas 4: Map<String,Object> - Injection de tous les paramètres du formulaire
-        if (paramType.equals(Map.class)) {
-            return resolveFormValuesMap();
+        // Vérifier que le paramètre est bien Map<String,Object> (pas Map<Integer,Integer> ou raw Map)
+        if (Map.class.isAssignableFrom(paramType)) {
+            java.lang.reflect.Type ptype = param.getParameterizedType();
+            if (ptype instanceof java.lang.reflect.ParameterizedType) {
+                java.lang.reflect.Type[] args = ((java.lang.reflect.ParameterizedType) ptype).getActualTypeArguments();
+                if (args != null && args.length == 2) {
+                    boolean keyIsString = args[0] instanceof Class && ((Class<?>) args[0]).equals(String.class);
+                    boolean valIsObject = args[1] instanceof Class && ((Class<?>) args[1]).equals(Object.class);
+                    if (keyIsString && valIsObject) {
+                        return resolveFormValuesMap();
+                    }
+                }
+            }
+            // si le Map n'a pas les bons generics, on ne l'interprète pas comme form map
         }
 
         // Cas 5: Si le paramètre est un POJO (classe custom) => tenter de le peupler
@@ -74,7 +86,8 @@ public class ParameterResolver {
             // Ne pas peupler si le param est annoté @PathVariable ou @RequestParam (handled later)
             if (param.getAnnotation(com.monframework.core.util.Annotation.PathVariable.class) == null
                 && param.getAnnotation(com.monframework.core.util.Annotation.RequestParam.class) == null) {
-                Object bean = BeanMapper.populate(paramType, request, pathVars);
+                // Populate using parameter name as prefix: supports inputs like "paramName.field"
+                Object bean = BeanMapper.populateWithPrefix(paramType, request, pathVars, paramName);
                 if (bean != null) return bean;
             }
         }

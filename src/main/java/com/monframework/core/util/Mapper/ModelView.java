@@ -74,7 +74,7 @@ public class ModelView {
 
     /**
      * Variante qui effectue directement le forward vers la vue retournée
-     * par la méthode du contrôleur.
+     * par la méthode du contrôleur, ou écrit une réponse JSON si applicable.
      *
      * @throws Exception si l'invocation échoue, si la vue est vide,
      *                   ou si le forward échoue
@@ -86,6 +86,15 @@ public class ModelView {
         } else if (this.route != null) {
             // appeler la méthode du contrôleur en passant request/response et Model si possible
             RouteMapping.InvokeResult res = this.route.callMethodWithModel(request, response, pathVars);
+            
+            // Si c'est une réponse JSON, l'écrire directement dans la réponse
+            if (res.isJsonResponse()) {
+                response.setContentType("application/json; charset=UTF-8");
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write(res.getJsonContent());
+                return;
+            }
+            
             viewPath = res.getView();
             this.view = viewPath;
             // injecter les attributs fournis par le contrôleur via Model

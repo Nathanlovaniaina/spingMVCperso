@@ -7,6 +7,9 @@ com\monframework\core\util\Annotation\ControleurAnnotation.class
 com\monframework\core\util\Annotation\PathVariable.class
 com\monframework\core\util\Mapper\ParmeterUtil\BeanMapper.class
 com\monframework\core\util\Mapper\ParmeterUtil\ParameterResolver.class
+com\monframework\core\util\JsonResponseWrapper.class
+com\monframework\core\util\Annotation\JsonResponse.class
+com\monframework\core\util\JsonResponseBuilder.class
 com\monframework\core\util\Annotation\PostRequest.class
 com\monframework\core\util\Mapper\ParmeterUtil\TypeConverter.class
 com\monframework\core\util\Mapper\ModelView.class

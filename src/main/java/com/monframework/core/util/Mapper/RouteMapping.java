@@ -18,6 +18,9 @@ import com.monframework.core.util.Annotation.ControleurAnnotation;
 import com.monframework.core.util.Annotation.HandleURL;
 import com.monframework.core.util.Annotation.GetRequest;
 import com.monframework.core.util.Annotation.PostRequest;
+import com.monframework.core.util.Formatter.JsonResponseBuilder;
+import com.monframework.core.util.Formatter.JsonResponseWrapper;
+import com.monframework.core.util.Annotation.JsonResponse;
 import com.monframework.core.util.Mapper.ParmeterUtil.ParameterResolver;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -196,14 +199,27 @@ public class RouteMapping {
     public static class InvokeResult {
         private final String view;
         private final Model model;
+        private final boolean isJsonResponse;
+        private final String jsonContent;
 
         public InvokeResult(String view, Model model) {
             this.view = view;
             this.model = model;
+            this.isJsonResponse = false;
+            this.jsonContent = null;
+        }
+
+        public InvokeResult(String jsonContent) {
+            this.view = null;
+            this.model = null;
+            this.isJsonResponse = true;
+            this.jsonContent = jsonContent;
         }
 
         public String getView() { return view; }
         public Model getModel() { return model; }
+        public boolean isJsonResponse() { return isJsonResponse; }
+        public String getJsonContent() { return jsonContent; }
     }
 
     /**
@@ -255,14 +271,53 @@ public class RouteMapping {
             throw new Exception("Méthode " + methodName + " non trouvée avec une signature supportée dans " + className);
         }
 
+        // Vérifier si la méthode est annotée avec @JsonResponse
+        JsonResponse jsonResponseAnnotation = target.getAnnotation(JsonResponse.class);
+        boolean isJsonResponse = jsonResponseAnnotation != null;
+
         // Vérifier type de retour
         Class<?> returnType = target.getReturnType();
-        if (!returnType.equals(String.class) && !returnType.equals(ModelView.class)) {
-            throw new Exception("La méthode " + methodName + " de la classe " + className +
-                    " ne retourne ni String ni ModelView (retourne: " + returnType.getName() + ")");
+        
+        // Si @JsonResponse est présent ou si le retour est JsonResponseWrapper, on accepte n'importe quel type
+        if (!isJsonResponse && !returnType.equals(JsonResponseWrapper.class)) {
+            if (!returnType.equals(String.class) && !returnType.equals(ModelView.class)) {
+                throw new Exception("La méthode " + methodName + " de la classe " + className +
+                        " ne retourne ni String, ni ModelView, ni JsonResponseWrapper (retourne: " + returnType.getName() + ")");
+            }
         }
 
         Object result = target.invoke(controllerInstance, args == null ? new Object[]{} : args);
+        
+        // Si le résultat est un JsonResponseWrapper, l'utiliser directement
+        if (result instanceof JsonResponseWrapper) {
+            JsonResponseWrapper wrapper = (JsonResponseWrapper) result;
+            String jsonContent = JsonResponseBuilder.buildJsonResponse(
+                wrapper.getData(), 
+                wrapper.getStatus(), 
+                wrapper.getMessage(), 
+                wrapper.getCode()
+            );
+            return new InvokeResult(jsonContent);
+        }
+        
+        // Si c'est une réponse JSON annotée
+        if (isJsonResponse) {
+            String message = jsonResponseAnnotation.message();
+            int code = jsonResponseAnnotation.code();
+            String jsonContent = JsonResponseBuilder.buildJsonResponse(result, "success", message, code);
+            return new InvokeResult(jsonContent);
+        }
+        
+        // Si le retour est une String et pas de ModelView, c'est aussi du JSON
+        if (returnType.equals(String.class) && !(result instanceof ModelView)) {
+            String strResult = (String) result;
+            // Vérifier si c'est déjà du JSON (commence par { ou [)
+            if (strResult != null && (strResult.trim().startsWith("{") || strResult.trim().startsWith("["))) {
+                return new InvokeResult(strResult);
+            }
+        }
+        
+        // Sinon, traitement classique avec ModelView
         if (result instanceof ModelView) {
             ModelView mv = (ModelView) result;
             String view = mv.getViewPath();

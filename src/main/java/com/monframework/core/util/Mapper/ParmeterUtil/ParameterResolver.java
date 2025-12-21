@@ -3,6 +3,7 @@ package com.monframework.core.util.Mapper.ParmeterUtil;
 import com.monframework.core.util.Annotation.PathVariable;
 import com.monframework.core.util.Annotation.RequestParam;
 import com.monframework.core.util.Mapper.Model;
+import com.monframework.core.util.FileUpload.FileUploadHandler;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -66,8 +67,15 @@ public class ParameterResolver {
                 if (args != null && args.length == 2) {
                     boolean keyIsString = args[0] instanceof Class && ((Class<?>) args[0]).equals(String.class);
                     boolean valIsObject = args[1] instanceof Class && ((Class<?>) args[1]).equals(Object.class);
+                    boolean valIsByteArray = args[1] instanceof Class && ((Class<?>) args[1]).equals(byte[].class);
+                    
                     if (keyIsString && valIsObject) {
                         return resolveFormValuesMap();
+                    }
+                    
+                    // Cas 4b: Map<String, byte[]> - Injection des fichiers uploadés
+                    if (keyIsString && valIsByteArray) {
+                        return resolveUploadedFilesMap();
                     }
                 }
             }
@@ -119,6 +127,17 @@ public class ParameterResolver {
             }
         }
         return formValues;
+    }
+    
+    /**
+     * Crée une Map contenant tous les fichiers uploadés.
+     * Clé: nom du fichier, Valeur: contenu du fichier en bytes
+     */
+    private Map<String, byte[]> resolveUploadedFilesMap() {
+        if (request != null) {
+            return FileUploadHandler.extractUploadedFiles(request);
+        }
+        return new HashMap<>();
     }
     
     /**

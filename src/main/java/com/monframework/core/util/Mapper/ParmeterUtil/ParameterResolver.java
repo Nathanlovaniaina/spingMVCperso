@@ -2,7 +2,9 @@ package com.monframework.core.util.Mapper.ParmeterUtil;
 
 import com.monframework.core.util.Annotation.PathVariable;
 import com.monframework.core.util.Annotation.RequestParam;
+import com.monframework.core.util.Annotation.Session;
 import com.monframework.core.util.Mapper.Model;
+import com.monframework.core.util.Mapper.SessionMap;
 import com.monframework.core.util.FileUpload.FileUploadHandler;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,9 +60,16 @@ public class ParameterResolver {
             return response;
         }
         
-        // Cas 4: Map<String,Object> - Injection de tous les paramètres du formulaire
+        // Cas 4: Map<String,Object> - Injection de tous les paramètres du formulaire ou session
         // Vérifier que le paramètre est bien Map<String,Object> (pas Map<Integer,Integer> ou raw Map)
         if (Map.class.isAssignableFrom(paramType)) {
+            // Vérifier si c'est une Map de session avec l'annotation @Session
+            Session sessionAnnotation = param.getAnnotation(Session.class);
+            if (sessionAnnotation != null) {
+                // Injection de la Map de session
+                return resolveSessionMap();
+            }
+            
             java.lang.reflect.Type ptype = param.getParameterizedType();
             if (ptype instanceof java.lang.reflect.ParameterizedType) {
                 java.lang.reflect.Type[] args = ((java.lang.reflect.ParameterizedType) ptype).getActualTypeArguments();
@@ -127,6 +136,20 @@ public class ParameterResolver {
             }
         }
         return formValues;
+    }
+    
+    /**
+     * Crée une Map wrapper pour la session HTTP.
+     * Cette Map permet de manipuler les attributs de session de manière simplifiée.
+     */
+    private Map<String, Object> resolveSessionMap() {
+        if (request != null && request.getSession(false) != null) {
+            return new SessionMap(request.getSession());
+        } else if (request != null) {
+            // Créer une nouvelle session si elle n'existe pas
+            return new SessionMap(request.getSession(true));
+        }
+        return new HashMap<>();
     }
     
     /**

@@ -6,6 +6,7 @@ C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\PathVariable.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\PostRequest.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\RequestParam.java
+C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Annotation\Session.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\FileUpload\FileUploadHandler.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Finder\ClassFinder.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Formatter\JsonResponseBuilder.java
@@ -16,3 +17,4 @@ C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\ParmeterUtil\ParameterResolver.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\ParmeterUtil\TypeConverter.java
 C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\RouteMapping.java
+C:\Users\lovan\Documents\S5\Mr Naina\framework\gith\spingMVCperso\src\main\java\com\monframework\core\util\Mapper\SessionMap.java
